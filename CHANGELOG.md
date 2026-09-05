@@ -18,8 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Anchors and aliases (`&name` / `*name`).
   - Returns `:error` for non-binary input, `:parse_error` for malformed YAML,
     and `:nil` for an empty document.
-- `mix zaml_nif.build` Mix task that auto-builds the NIF during `mix compile`
-  and `mix test` (idempotent, dependency-aware).
+- NIF is compiled at `mix compile` via [`elixir_make`](https://hex.pm/packages/elixir_make)
+  and the project `Makefile` (also invokable as Mix task `ZamlNif.Build`).
 - `mix zaml_nif.bench PATH` Mix task for head-to-head benchmarking against
   `fast_yaml`.
 - `Makefile` driving the `zig build-lib` invocation directly, with

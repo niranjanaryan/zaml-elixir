@@ -101,7 +101,7 @@ unusual.
 
 ```bash
 mix deps.get
-mix compile   # automatically builds the NIF via `mix zaml_nif.build`
+mix compile   # builds the NIF via elixir_make / Makefile
 ```
 
 ## Usage

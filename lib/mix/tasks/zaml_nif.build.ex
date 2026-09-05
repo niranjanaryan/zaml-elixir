@@ -7,8 +7,6 @@ defmodule Mix.Tasks.ZamlNif.Build do
 
   @impl Mix.Task
   def run(_args) do
-    ensure_yaml_env()
-    ensure_fast_yaml_compiled()
     app_path = Mix.Project.app_path()
     priv_dir = Path.join(app_path, "priv")
     File.mkdir_p!(priv_dir)
@@ -84,52 +82,6 @@ defmodule Mix.Tasks.ZamlNif.Build do
     case {File.stat(a, time: :posix), File.stat(b, time: :posix)} do
       {{:ok, %File.Stat{mtime: t1}}, {:ok, %File.Stat{mtime: t2}}} -> t1 > t2
       _ -> true
-    end
-  end
-
-  # Make sure rebar3-compiled deps (fast_yaml) can find libyaml.
-  # pkg-config is checked first; fall back to common well-known prefixes.
-  defp ensure_yaml_env do
-    yaml_inc = System.get_env("YAML_INCLUDE_DIR") || guess_yaml_dir("include", "yaml.h")
-    yaml_lib = System.get_env("YAML_LIB_DIR") || guess_yaml_dir("lib", "libyaml.dylib")
-
-    if yaml_inc do
-      System.put_env("CFLAGS", "-I#{yaml_inc}")
-      System.put_env("CPPFLAGS", "-I#{yaml_inc}")
-      if yaml_lib, do: System.put_env("LDFLAGS", "-L#{yaml_lib}")
-    end
-  end
-
-  defp guess_yaml_dir(sub, marker) do
-    for prefix <- ["/opt/homebrew", "/usr/local", "/usr"],
-        File.exists?(Path.join(prefix, Path.join(sub, marker))) do
-      Path.join(prefix, sub)
-    end
-    |> List.first()
-  end
-
-  # If the user has `fast_yaml` in their deps and it failed to compile because
-  # of a missing libyaml header, retry now that we've exported the env vars.
-  defp ensure_fast_yaml_compiled do
-    fast_yaml_priv = Path.join([Mix.Project.deps_path(), "fast_yaml", "priv"])
-
-    if File.dir?(fast_yaml_priv) do
-      so_path = Path.wildcard(Path.join([fast_yaml_priv, "**/*.so"])) |> List.first()
-
-      if is_nil(so_path) do
-        Mix.shell().info("Re-attempting fast_yaml compile with libyaml env...")
-
-        {out, exit} =
-          System.cmd(
-            "mix",
-            ["deps.compile", "fast_yaml", "--force"],
-            stderr_to_stdout: true,
-            cd: File.cwd!()
-          )
-
-        IO.write(out)
-        if exit != 0, do: raise("fast_yaml compile failed even with libyaml env set")
-      end
     end
   end
 end

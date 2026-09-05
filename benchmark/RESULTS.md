@@ -74,7 +74,7 @@ mix zaml_nif.bench benchmark/big.yml        # ~0.5 s
 mix zaml_nif.bench benchmark/big_1m.yml     # ~1.3 s
 ```
 
-`mix zaml_nif.bench` runs the chosen YAML through `Zaml.load/1` and
+The `ZamlNif.Bench` Mix task runs the chosen YAML through `Zaml.load/1` and
 `:fast_yaml.decode/2` three times each and reports average, min, and
 max in seconds (or milliseconds for runs under 1 s).
 

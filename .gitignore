@@ -17,6 +17,8 @@ wheelhouse
 /cover/
 /deps/
 /doc/
+/zaml-*.tar
+/zaml-*/
 /.fetch
 erl_crash.dump
 *.ez

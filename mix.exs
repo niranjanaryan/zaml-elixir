@@ -37,12 +37,13 @@ defmodule Zaml.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       description: "Fast YAML 1.2 parser for Elixir via a Zig NIF backed by libyaml",
-      license: "MIT",
       source_url: "https://github.com/niranjanaryan/zaml-elixir",
-      homepage_url: "https://hex.pm/packages/zaml",
+      homepage_url: "https://github.com/niranjanaryan/zaml-elixir",
       docs: docs(),
       package: package(),
-      aliases: aliases(),
+      compilers: [:elixir_make] ++ Mix.compilers(),
+      make_targets: ["all"],
+      make_clean: ["clean"],
       deps: deps(),
       build_per_environment: true
     ]
@@ -50,24 +51,20 @@ defmodule Zaml.MixProject do
 
   def application, do: []
 
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
   defp deps do
-    [{:fast_yaml, "~> 1.0", only: [:dev, :test], runtime: false}]
-  end
-
-  defp aliases do
     [
-      compile: ["zaml_nif.build", "compile"],
-      test: ["zaml_nif.build", "test"]
+      {:elixir_make, "~> 0.9", runtime: false},
+      {:fast_yaml, "~> 1.0", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.38", only: :dev, runtime: false}
     ]
   end
 
   defp docs do
     [
       main: "Zaml",
-      extras: ["README.md", "LICENSE", "benchmark/RESULTS.md"]
+      extras: ["README.md", "LICENSE", "CHANGELOG.md", "benchmark/RESULTS.md"]
     ]
   end
 
@@ -76,29 +73,22 @@ defmodule Zaml.MixProject do
       files: [
         "lib",
         "native",
-        "priv",
-        "test",
         "Makefile",
         "mix.exs",
-        "mix.lock",
         "README.md",
-        "README*",
-        "LICENSE*",
-        ".formatter.exs",
-        ".gitignore",
-        "benchmark/benchmark.exs",
-        "benchmark/gen_big_yaml.py",
-        "benchmark/run_benchmark.py",
-        "benchmark/RESULTS.md"
+        "LICENSE",
+        "CHANGELOG.md",
+        ".formatter.exs"
       ],
       exclude_patterns: [
-        ~r"^benchmark/big.*\.yml$",
-        ~r"^benchmark/libs/"
+        ~r"\.so$",
+        ~r"\.zaml_nif\.stamp$"
       ],
       maintainers: ["Niranjan Aryan"],
       licenses: ["MIT"],
       links: %{
         "GitHub" => "https://github.com/niranjanaryan/zaml-elixir",
+        "Changelog" => "https://github.com/niranjanaryan/zaml-elixir/blob/main/CHANGELOG.md",
         "Benchmarks" => "https://github.com/niranjanaryan/zaml-elixir/blob/main/benchmark/RESULTS.md"
       }
     ]

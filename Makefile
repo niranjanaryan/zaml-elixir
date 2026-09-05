@@ -28,7 +28,7 @@ ifeq ($(strip $(YAML_CFLAGS))$(strip $(YAML_LIBS)),)
   endif
 endif
 
-ERTS_INCLUDE_DIR := $(shell erl -noshell -eval 'io:format("~s", [code:lib_dir(erts, include)]), halt().')
+ERTS_INCLUDE_DIR ?= $(shell erl -noshell -eval 'io:format("~s", [code:lib_dir(erts, include)]), halt().')
 
 PRIV_DIR := $(MIX_APP_PATH)/priv
 PRIV_SO  := $(PRIV_DIR)/zaml.so
