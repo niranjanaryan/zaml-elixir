@@ -5,9 +5,29 @@ dist/
 *.egg-info
 *.so
 zig-cache/
-__pycache__
+__pycache__/
 .eggs
 wheelhouse
 .DS_Store
 .envrc
 .python-version
+
+# Elixir / Mix
+/_build/
+/cover/
+/deps/
+/doc/
+/.fetch
+erl_crash.dump
+*.ez
+*.beam
+/config/*.secret.exs
+.elixir_ls/
+
+# Elixir build artifacts
+/priv/native/
+/priv/.zaml_nif.stamp
+
+# Generated benchmark fixtures
+/benchmark/big.yml
+/benchmark/big_1m.yml
