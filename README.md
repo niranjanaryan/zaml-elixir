@@ -212,7 +212,7 @@ yaml.dump({f'a{i}': f'b{i+1}' for i in range(1_000_000)},
 
 # 4. Run the head-to-head
 mix zaml_nif.bench benchmark/big.yml        # Zaml parse ~0.5 s (all parsers run)
-mix zaml_nif.bench benchmark/big_1m.yml     # Zaml parse ~0.9 s (all parsers run)
+mix zaml_nif.bench benchmark/big_1m.yml     # Zaml parse ~0.8 s (all parsers run)
 ```
 
 A separate cross-language script (`benchmark/run_benchmark.py`) also
