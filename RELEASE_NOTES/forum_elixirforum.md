@@ -96,8 +96,9 @@ mix deps.get
 mix compile
 ```
 
-The NIF is built automatically during `mix compile` via a small Mix
-task; no `rebar3 port_compiler`, no `configure` script.
+The NIF is built automatically during `mix compile` through
+`elixir_make` and a single `make` invocation; no `rebar3
+port_compiler`, no `configure` script.
 
 **Origin:** this started as a side experiment in porting the original
 `zaml` Python prototype (a pure-Zig Python extension that was the

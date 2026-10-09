@@ -225,7 +225,9 @@ numbers.
 .
 ├── lib/
 │   ├── zaml.ex                      # public Elixir API
-│   └── mix/tasks/zaml_nif.build.ex  # compile-time NIF build task
+│   └── mix/tasks/
+│       ├── zaml_nif.build.ex        # manual NIF build (`mix zaml_nif.build`)
+│       └── zaml_nif.bench.ex        # `mix zaml_nif.bench` benchmark task
 ├── native/
 │   └── zaml_nif.zig                 # the NIF (uses libyaml via @cImport)
 ├── priv/                            # compiled zaml.so lands here
