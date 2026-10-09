@@ -1,28 +1,30 @@
-# zaml 0.2.0 — a fast YAML parser for Elixir, and what I learned wiring libyaml to the BEAM via Zig
+# zaml 0.2.0 — YAML parsing for Elixir, but fast ⚡ (and what I learned wiring libyaml to the BEAM via Zig)
 
-*Announcing `zaml` 0.2.0, a Zig NIF for fast YAML 1.2 parsing in Elixir. Repo at https://github.com/niranjanaryan/zaml-elixir, package on Hex at https://hex.pm/packages/zaml.*
+*Announcing `zaml` 0.2.0: a Zig NIF for fast YAML parsing in Elixir. Repo at https://github.com/niranjanaryan/zaml-elixir, on Hex at https://hex.pm/packages/zaml, docs at https://hexdocs.pm/zaml.*
 
 ## TL;DR
 
-`zaml` is a Zig NIF that wraps the same `libyaml` C library used by
-PyYAML. It exposes a single `Zaml.load/1` function that returns native
-Erlang terms. On an Apple M3 Pro, it parses:
+yaml parsing, but fast ⚡
+
+`zaml` is a tiny Zig NIF that wraps the same `libyaml` C library PyYAML
+uses and turns its event stream straight into native Erlang terms in a
+single pass. it exposes one function, `Zaml.load/1`. on an Apple M3 Pro
+it chews through:
 
 - a 1,000,000-line flat YAML file in **0.84 s** (vs. 1.73 s for
   `glazer` and 2.54 s for `fast_yaml`), and
 - a 100,000-key nested YAML file in **0.53 s** (vs. 0.41 s for
   `glazer` and 1.86 s for `fast_yaml`).
 
-The pure-Erlang parsers everyone ships today — `yamerl` / `yaml_elixir`
-— take **23–31 s** on the same fixtures.
+the pure-Erlang parsers everyone ships today — `yamerl` / `yaml_elixir` —
+take **23–31 s** on the same fixtures. no cap.
 
-This post is the story of how I built it, the trade-offs I made, and
-why a thin Zig shim over a battle-tested C parser is still worth
-writing in 2026.
+this is the story of how i built it, the trade-offs i made, and why a thin
+Zig shim over a battle-tested C parser is still worth writing in 2026.
 
-## Why yet another YAML library
+## why yet another YAML library
 
-There are already two well-loved YAML libraries on Hex:
+ok so there are already two well-loved YAML libraries on Hex:
 [`yamerl`](https://hex.pm/packages/yamerl) and its Elixir wrapper
 [`yaml_elixir`](https://hex.pm/packages/yaml_elixir). Both are pure
 Erlang ports of the yamerl parser, which is correct and supports the
@@ -124,10 +126,10 @@ if yaml_inc do
 end
 ```
 
-## Benchmarks
+## the receipts
 
-The full table lives in `benchmark/RESULTS.md` in the repo. The
-short version:
+full table lives in `benchmark/RESULTS.md` in the repo. the short
+version (no cap):
 
 | Parser | 1M-line flat | 100k-key nested |
 |---|---|---|
@@ -241,6 +243,7 @@ iex> Zaml.load("foo: 1\nbar: [a, b, 3.14]\n")
 ```
 
 Links: [Hex.pm](https://hex.pm/packages/zaml) ·
+[HexDocs](https://hexdocs.pm/zaml) ·
 [GitHub](https://github.com/niranjanaryan/zaml-elixir) ·
 [CHANGELOG](https://github.com/niranjanaryan/zaml-elixir/blob/main/CHANGELOG.md) ·
 [Benchmarks](https://github.com/niranjanaryan/zaml-elixir/blob/main/benchmark/RESULTS.md)

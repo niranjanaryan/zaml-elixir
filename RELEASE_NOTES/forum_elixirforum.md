@@ -83,9 +83,8 @@ mix zaml_nif.bench benchmark/big.yml        # compares every installed parser
 **What it does:**
 
 - `Zaml.load/1` — returns maps/lists/ints/floats/bools/`:nil`.
-- YAML 1.1 scalar resolution via `libyaml` (`true`/`false`/`null`, plus
-  the 1.1 `yes`/`on`/`no`/`off` booleans; int/float inference from plain
-  scalars).
+- YAML 1.2 *core* schema scalar resolution (`true`/`false`/`null`,
+  int/float inference from plain scalars).
 - Respects explicit `!!str`/`!!int`/`!!float`/`!!bool`/`!!null` tags.
 - Anchors and aliases (`&name` / `*name`).
 - Returns `:parse_error` for malformed YAML, `:nil` for an empty doc.
