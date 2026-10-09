@@ -15,6 +15,11 @@ const Frame = struct {
     map: erl_nif.ERL_NIF_TERM = 0,
     list_buf: std.ArrayList(erl_nif.ERL_NIF_TERM) = std.ArrayList(erl_nif.ERL_NIF_TERM).empty,
     pending_key: ?erl_nif.ERL_NIF_TERM = null,
+    // Accumulated key/value pairs for the current map, flushed with a
+    // single enif_make_map_from_arrays call when the map closes. This avoids
+    // the O(n^2) rehashing of per-pair enif_make_map_put calls.
+    keys: std.ArrayList(erl_nif.ERL_NIF_TERM) = std.ArrayList(erl_nif.ERL_NIF_TERM).empty,
+    vals: std.ArrayList(erl_nif.ERL_NIF_TERM) = std.ArrayList(erl_nif.ERL_NIF_TERM).empty,
 };
 
 export fn zaml_load_nif(env: *erl_nif.ErlNifEnv, argc: c_int, argv: [*]const erl_nif.ERL_NIF_TERM) callconv(.c) erl_nif.ERL_NIF_TERM {
@@ -28,12 +33,12 @@ export fn zaml_load_nif(env: *erl_nif.ErlNifEnv, argc: c_int, argv: [*]const erl
     const data: [*]const u8 = @ptrCast(bin.data);
     const input = data[0..bin.size];
 
-    return parse_yaml(env, input) catch {
+    return parse_yaml(env, input_term, input) catch {
         return erl_nif.enif_make_atom(env, "parse_error");
     };
 }
 
-fn parse_yaml(env: *erl_nif.ErlNifEnv, input: []const u8) !erl_nif.ERL_NIF_TERM {
+fn parse_yaml(env: *erl_nif.ErlNifEnv, input_term: erl_nif.ERL_NIF_TERM, input: []const u8) !erl_nif.ERL_NIF_TERM {
     var parser: yaml.yaml_parser_t = undefined;
     if (yaml.yaml_parser_initialize(&parser) == 0) return error.NoParser;
     defer yaml.yaml_parser_delete(&parser);
@@ -42,7 +47,11 @@ fn parse_yaml(env: *erl_nif.ErlNifEnv, input: []const u8) !erl_nif.ERL_NIF_TERM 
 
     var stack = std.ArrayList(Frame).empty;
     defer {
-        for (stack.items) |*f| f.list_buf.deinit(yaml_alloc);
+        for (stack.items) |*f| {
+            f.list_buf.deinit(yaml_alloc);
+            f.keys.deinit(yaml_alloc);
+            f.vals.deinit(yaml_alloc);
+        }
         stack.deinit(yaml_alloc);
     }
 
@@ -68,7 +77,7 @@ fn parse_yaml(env: *erl_nif.ErlNifEnv, input: []const u8) !erl_nif.ERL_NIF_TERM 
             yaml.YAML_ALIAS_EVENT => {
                 const a = std.mem.span(event.data.alias.anchor);
                 const v = anchors.get(a) orelse return error.AliasUnknown;
-                try deliver_value(env, &stack, &first_doc, v);
+                try deliver_value(&stack, &first_doc, v);
             },
 
             yaml.YAML_SCALAR_EVENT => {
@@ -79,7 +88,7 @@ fn parse_yaml(env: *erl_nif.ErlNifEnv, input: []const u8) !erl_nif.ERL_NIF_TERM 
                 if (event.data.scalar.anchor) |a| {
                     try anchors.put(std.mem.span(a), term);
                 }
-                try deliver_value(env, &stack, &first_doc, term);
+                try deliver_value(&stack, &first_doc, term);
             },
 
             yaml.YAML_SEQUENCE_START_EVENT => {
@@ -88,16 +97,16 @@ fn parse_yaml(env: *erl_nif.ErlNifEnv, input: []const u8) !erl_nif.ERL_NIF_TERM 
             yaml.YAML_SEQUENCE_END_EVENT => {
                 const top = stack.pop() orelse return error.UnexpectedEvent;
                 const term = erl_nif.enif_make_list_from_array(env, top.list_buf.items.ptr, @intCast(top.list_buf.items.len));
-                try deliver_value(env, &stack, &first_doc, term);
+                try deliver_value(&stack, &first_doc, term);
             },
 
             yaml.YAML_MAPPING_START_EVENT => {
-                const m = erl_nif.enif_make_new_map(env);
-                try stack.append(yaml_alloc, .{ .kind = .map, .map = m });
+                try stack.append(yaml_alloc, .{ .kind = .map });
             },
             yaml.YAML_MAPPING_END_EVENT => {
                 const top = stack.pop() orelse return error.UnexpectedEvent;
-                try deliver_value(env, &stack, &first_doc, top.map);
+                const term = try make_map(env, top.keys, top.vals);
+                try deliver_value(&stack, &first_doc, term);
             },
 
             else => return error.UnknownEvent,
@@ -107,7 +116,16 @@ fn parse_yaml(env: *erl_nif.ErlNifEnv, input: []const u8) !erl_nif.ERL_NIF_TERM 
     return first_doc orelse erl_nif.enif_make_atom(env, "nil");
 }
 
-fn deliver_value(env: *erl_nif.ErlNifEnv, stack: *std.ArrayList(Frame), first_doc: *?erl_nif.ERL_NIF_TERM, value: erl_nif.ERL_NIF_TERM) !void {
+fn make_map(env: *erl_nif.ErlNifEnv, keys: std.ArrayList(erl_nif.ERL_NIF_TERM), vals: std.ArrayList(erl_nif.ERL_NIF_TERM)) !erl_nif.ERL_NIF_TERM {
+    if (keys.items.len == 0) return erl_nif.enif_make_new_map(env);
+    var out: erl_nif.ERL_NIF_TERM = 0;
+    if (erl_nif.enif_make_map_from_arrays(env, keys.items.ptr, vals.items.ptr, @intCast(keys.items.len), &out) == 0) {
+        return error.DuplicateKeys;
+    }
+    return out;
+}
+
+fn deliver_value(stack: *std.ArrayList(Frame), first_doc: *?erl_nif.ERL_NIF_TERM, value: erl_nif.ERL_NIF_TERM) !void {
     if (stack.items.len == 0) {
         if (first_doc.* == null) first_doc.* = value;
         return;
@@ -121,7 +139,8 @@ fn deliver_value(env: *erl_nif.ErlNifEnv, stack: *std.ArrayList(Frame), first_do
             } else {
                 const k = top.pending_key.?;
                 top.pending_key = null;
-                if (erl_nif.enif_make_map_put(env, top.map, k, value, &top.map) == 0) return error.MapPutFailed;
+                try top.keys.append(yaml_alloc, k);
+                try top.vals.append(yaml_alloc, value);
             }
         },
     }
