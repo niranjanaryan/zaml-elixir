@@ -33,13 +33,13 @@ also wraps `libyaml`.
 `Zaml` is `fast_yaml` but with a thinner event-to-term bridge: the
 libyaml event stream is consumed in Zig and turned into Erlang terms
 in a single pass, building maps directly instead of going through
-intermediate proplists. That gives a **~3× speedup over `fast_yaml`**
-on both flat and nested mappings, and **35–48× over the pure-Erlang
+intermediate proplists. That gives a **~3–3.5× speedup over `fast_yaml`**
+across flat and nested mappings, and **36–46× over the pure-Erlang
 parsers**. See [benchmarks](#benchmarks) below.
 
 The newer [`glazer`](https://hex.pm/packages/glazer) NIF is the one
-library that can beat `Zaml` — it's faster on nested data (~1.35×) and
-slower on a single flat 1M-key map (~1.8×). It gets there with a
+library that can beat `Zaml` — it's faster on nested data (~1.3×) and
+slower on a single flat 1M-key map (~2.1×). It gets there with a
 hand-rolled C++ YAML parser built with profile-guided optimisation,
 whereas `Zaml` deliberately stays on top of battle-tested `libyaml`.
 
@@ -56,21 +56,21 @@ Full report at [`benchmark/RESULTS.md`](benchmark/RESULTS.md).
 
 | Parser                              | Avg (s) | Relative |
 | ----------------------------------- | -------:| --------:|
-| **Zaml (NIF, libyaml + Zig)**       | **0.85**| **1.00×**|
-| `glazer 1.1.6` (C++ NIF, PGO)       |  1.54   |   1.81×  |
-| `fast_yaml 1.0.40` (rebar3 NIF)     |  2.60   |   3.06×  |
-| `yamerl 0.10.0` (pure Erlang)       | 28.94   |  34.0×   |
-| `yaml_elixir 2.12.2` (yamerl)       | 30.71   |  36.0×   |
+| **Zaml (NIF, libyaml + Zig)**       | **0.84**| **1.00×**|
+| `glazer 1.1.6` (C++ NIF, PGO)       |  1.73   |   2.06×  |
+| `fast_yaml 1.0.40` (rebar3 NIF)     |  2.54   |   3.03×  |
+| `yamerl 0.10.0` (pure Erlang)       | 30.27   |  36.1×   |
+| `yaml_elixir 2.12.2` (yamerl)       | 30.95   |  36.9×   |
 
 ### 100k-key nested mapping (15 MB)
 
 | Parser                              | Avg (s) | Relative |
 | ----------------------------------- | -------:| --------:|
-| **Zaml (NIF, libyaml + Zig)**       | **0.51**| **1.00×**|
-| `glazer 1.1.6` (C++ NIF, PGO)       |  0.38   |   0.74×  |
-| `fast_yaml 1.0.40` (rebar3 NIF)     |  1.71   |   3.36×  |
-| `yamerl 0.10.0` (pure Erlang)       | 23.48   |  46.2×   |
-| `yaml_elixir 2.12.2` (yamerl)       | 24.25   |  47.7×   |
+| **Zaml (NIF, libyaml + Zig)**       | **0.53**| **1.00×**|
+| `glazer 1.1.6` (C++ NIF, PGO)       |  0.41   |   0.77×  |
+| `fast_yaml 1.0.40` (rebar3 NIF)     |  1.86   |   3.50×  |
+| `yamerl 0.10.0` (pure Erlang)       | 23.88   |  45.0×   |
+| `yaml_elixir 2.12.2` (yamerl)       | 24.40   |  45.9×   |
 
 Both `Zaml` and `fast_yaml` wrap the same `libyaml` C parser, so the
 ~3× gap there is purely the event→term bridge. `glazer` is a

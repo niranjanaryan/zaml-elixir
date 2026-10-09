@@ -27,13 +27,13 @@ nested data but trails it on a wide flat map.
 
 | Parser | 1M-line flat (16 MB) | 100k-key nested (15 MB) |
 |---|---:|---:|
-| **`zaml` 0.1.0** | **0.85 s** | **0.51 s** |
-| `glazer` 1.1.6 (C++ NIF, PGO) | 1.54 s | 0.38 s |
-| `fast_yaml` 1.0.40 (rebar3 NIF) | 2.60 s | 1.71 s |
-| `yamerl` 0.10.0 (pure Erlang) | 28.94 s | 23.48 s |
-| `yaml_elixir` 2.12.2 (yamerl) | 30.71 s | 24.25 s |
+| **`zaml` 0.1.0** | **0.84 s** | **0.53 s** |
+| `glazer` 1.1.6 (C++ NIF, PGO) | 1.73 s | 0.41 s |
+| `fast_yaml` 1.0.40 (rebar3 NIF) | 2.54 s | 1.86 s |
+| `yamerl` 0.10.0 (pure Erlang) | 30.27 s | 23.88 s |
+| `yaml_elixir` 2.12.2 (yamerl) | 30.95 s | 24.40 s |
 
-`zaml` is ~3× faster than `fast_yaml` and ~35–48× faster than the
+`zaml` is ~3–3.5× faster than `fast_yaml` and ~36–46× faster than the
 pure-Erlang parsers. Both `zaml` and `fast_yaml` wrap the same
 `libyaml` C parser, so that speedup comes from how quickly the libyaml
 event stream is turned into Erlang terms: `zaml` builds maps directly,

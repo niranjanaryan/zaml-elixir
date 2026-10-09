@@ -8,10 +8,10 @@
 PyYAML. It exposes a single `Zaml.load/1` function that returns native
 Erlang terms. On an Apple M3 Pro, it parses:
 
-- a 1,000,000-line flat YAML file in **0.85 s** (vs. 1.54 s for
-  `glazer` and 2.60 s for `fast_yaml`), and
-- a 100,000-key nested YAML file in **0.51 s** (vs. 0.38 s for
-  `glazer` and 1.71 s for `fast_yaml`).
+- a 1,000,000-line flat YAML file in **0.84 s** (vs. 1.73 s for
+  `glazer` and 2.54 s for `fast_yaml`), and
+- a 100,000-key nested YAML file in **0.53 s** (vs. 0.41 s for
+  `glazer` and 1.86 s for `fast_yaml`).
 
 The pure-Erlang parsers everyone ships today — `yamerl` / `yaml_elixir`
 — take **23–31 s** on the same fixtures.
@@ -131,18 +131,18 @@ short version:
 
 | Parser | 1M-line flat | 100k-key nested |
 |---|---|---|
-| `zaml` 0.1.0 (Zig NIF + libyaml) | **0.85 s** | **0.51 s** |
-| `glazer` 1.1.6 (C++ NIF, PGO) | 1.54 s | 0.38 s |
-| `fast_yaml` 1.0.40 | 2.60 s (3.06×) | 1.71 s (3.36×) |
-| `yamerl` 0.10.0 (pure Erlang) | 28.94 s (34.0×) | 23.48 s (46.2×) |
-| `yaml_elixir` 2.12.2 | 30.71 s (36.0×) | 24.25 s (47.7×) |
+| `zaml` 0.1.0 (Zig NIF + libyaml) | **0.84 s** | **0.53 s** |
+| `glazer` 1.1.6 (C++ NIF, PGO) | 1.73 s | 0.41 s |
+| `fast_yaml` 1.0.40 | 2.54 s (3.03×) | 1.86 s (3.50×) |
+| `yamerl` 0.10.0 (pure Erlang) | 30.27 s (36.1×) | 23.88 s (45.0×) |
+| `yaml_elixir` 2.12.2 | 30.95 s (36.9×) | 24.40 s (45.9×) |
 
-`zaml` is ~3× faster than `fast_yaml` on both shapes — the
+`zaml` is ~3–3.5× faster than `fast_yaml` across shapes — the
 proplist-to-map conversion in `fast_yaml` is the dominant cost — and
-~35–48× faster than the pure-Erlang parsers. The one library that
+~36–46× faster than the pure-Erlang parsers. The one library that
 edges it out is `glazer`, a hand-rolled C++ YAML parser (not libyaml)
 built with profile-guided optimisation: it wins on the deeply nested
-fixture (~1.35×) and loses on the single wide 1M-key map (~1.8×). I'd
+fixture (~1.3×) and loses on the single wide 1M-key map (~2.1×). I'd
 rather publish that than cherry-pick a shape.
 
 The benchmark fixtures are committed as generators; the actual 16 MB

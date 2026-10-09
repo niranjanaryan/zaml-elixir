@@ -39,16 +39,16 @@ profile-guided optimisation, and it's the one library that can beat
 
 | Parser | 1M-line flat (16 MB) | 100k-key nested (15 MB) |
 |---|---:|---:|
-| **`zaml` 0.1.0** (Zig NIF + libyaml) | **0.85 s** | **0.51 s** |
-| `glazer` 1.1.6 (C++ NIF, PGO) | 1.54 s | 0.38 s |
-| `fast_yaml` 1.0.40 (rebar3 NIF) | 2.60 s | 1.71 s |
-| `yamerl` 0.10.0 (pure Erlang) | 28.94 s | 23.48 s |
-| `yaml_elixir` 2.12.2 (yamerl) | 30.71 s | 24.25 s |
+| **`zaml` 0.1.0** (Zig NIF + libyaml) | **0.84 s** | **0.53 s** |
+| `glazer` 1.1.6 (C++ NIF, PGO) | 1.73 s | 0.41 s |
+| `fast_yaml` 1.0.40 (rebar3 NIF) | 2.54 s | 1.86 s |
+| `yamerl` 0.10.0 (pure Erlang) | 30.27 s | 23.88 s |
+| `yaml_elixir` 2.12.2 (yamerl) | 30.95 s | 24.40 s |
 
-So: `zaml` is **~3× faster than `fast_yaml`** and **~35–48× faster
-than the pure-Erlang parsers** on both fixtures. `glazer` is ~1.35×
-faster than `zaml` on the nested fixture and ~1.8× slower on the flat
-one — there's no single fastest library across shapes.
+So: `zaml` is **~3–3.5× faster than `fast_yaml`** and **~36–46×
+faster than the pure-Erlang parsers** on both fixtures. `glazer` is
+~1.3× faster than `zaml` on the nested fixture and ~2.1× slower on the
+flat one — there's no single fastest library across shapes.
 
 The full report (with min/max, reproduce steps, and caveats) is in
 `benchmark/RESULTS.md` in the repo. You can reproduce the head-to-head

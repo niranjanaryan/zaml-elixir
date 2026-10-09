@@ -15,14 +15,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   O(n^2) rehashing on wide maps. String scalars are now returned as
   sub-binaries of the input (`enif_make_sub_binary`) rather than copied
   into freshly allocated binaries, so the parse no longer re-copies every
-  string value. Combined these take the 100k-key nested benchmark from
-  ~0.65 s to ~0.53 s and the 1M-key flat benchmark from ~0.85 s to ~0.63 s,
-  widening the lead over `fast_yaml` to ~3.5–4.6×.
+  string value. Together these take the 100k-key nested benchmark from
+  ~0.65 s to ~0.53 s and shave the 1M-key flat benchmark to ~0.84 s,
+  keeping the lead over `fast_yaml` at ~3.0–3.5×.
 
   The sub-binary path is guarded: we only sub-binary when the scalar
   pointer provably lies inside the input buffer, falling back to a copy
   otherwise, so the change stays correct across libyaml versions that may
   write quoted/block/folded scalars into their own buffer.
+
+### Fixed
+
+- **Anchors and aliases.** `&name` is now registered for scalars and for
+  mapping/sequence starts, and `*name` resolves to the aliased term. Anchor
+  names are copied into a parse-scoped arena because libyaml frees the event
+  buffer after each event. Previously any document using an anchor returned
+  `:parse_error`.
 
 ## [0.1.0] - 2026-09-05
 
