@@ -85,7 +85,7 @@ Add `zaml` to your `mix.exs`:
 ```elixir
 def deps do
   [
-    {:zaml, "~> 0.1.0"}
+    {:zaml, "~> 0.2.0"}
   ]
 end
 ```

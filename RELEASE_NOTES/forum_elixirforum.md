@@ -1,13 +1,13 @@
-# Elixir Forum post — `zaml` 0.1.0: a fast YAML parser for Elixir
+# Elixir Forum post — `zaml` 0.2.0: a fast YAML parser for Elixir
 
 **Category:** Libraries & Frameworks → Announcements
-**Title:** zaml 0.1.0 — fast YAML parser for Elixir (Zig NIF + libyaml)
+**Title:** zaml 0.2.0 — fast YAML parser for Elixir (Zig NIF + libyaml)
 
 ---
 
 Hi everyone,
 
-I'd like to announce `zaml` 0.1.0, a new YAML 1.2 parser for Elixir
+I'd like to announce `zaml` 0.2.0, a YAML 1.2 parser for Elixir
 that's noticeably faster than the existing options on Hex. It's
 released as a Zig NIF that wraps the same `libyaml` C library used by
 PyYAML, with the libyaml event stream → Erlang term conversion done in
@@ -39,7 +39,7 @@ profile-guided optimisation, and it's the one library that can beat
 
 | Parser | 1M-line flat (16 MB) | 100k-key nested (15 MB) |
 |---|---:|---:|
-| **`zaml` 0.1.0** (Zig NIF + libyaml) | **0.84 s** | **0.53 s** |
+| **`zaml` 0.2.0** (Zig NIF + libyaml) | **0.84 s** | **0.53 s** |
 | `glazer` 1.1.6 (C++ NIF, PGO) | 1.73 s | 0.41 s |
 | `fast_yaml` 1.0.40 (rebar3 NIF) | 2.54 s | 1.86 s |
 | `yamerl` 0.10.0 (pure Erlang) | 30.27 s | 23.88 s |
@@ -49,6 +49,23 @@ So: `zaml` is **~3–3.5× faster than `fast_yaml`** and **~36–46×
 faster than the pure-Erlang parsers** on both fixtures. `glazer` is
 ~1.3× faster than `zaml` on the nested fixture and ~2.1× slower on the
 flat one — there's no single fastest library across shapes.
+
+**What's new in 0.2.0:**
+
+- **Single-shot map construction.** Maps are built with one
+  `enif_make_map_from_arrays` call per map instead of a per-pair
+  `enif_make_map_put`, removing the O(n²) rehashing that dominated wide
+  maps. This is most of the gain over `fast_yaml` on the flat fixture.
+- **Zero-copy scalar sub-binaries.** String scalars are returned as
+  sub-binaries of the input rather than copied into freshly allocated
+  binaries. The path is bounds-checked, with a copy fallback for scalars
+  that some libyaml versions write into their own buffer, so it stays
+  correct across libyaml versions.
+- **Anchors and aliases now work end-to-end.** `&name` / `*name` were
+  accepted by the parser but never resolved, so any document using an
+  anchor returned `:parse_error`. Anchor names are now copied into a
+  parse-scoped arena (libyaml frees the event buffer after each event)
+  and aliases resolve to the aliased term.
 
 The full report (with min/max, reproduce steps, and caveats) is in
 `benchmark/RESULTS.md` in the repo. You can reproduce the head-to-head
@@ -81,7 +98,7 @@ mix zaml_nif.bench benchmark/big.yml        # compares every installed parser
 
 ```elixir
 def deps do
-  [{:zaml, "~> 0.1.0"}]
+  [{:zaml, "~> 0.2.0"}]
 end
 ```
 
@@ -114,5 +131,5 @@ binding.
 - README, benchmark suite, and full benchmark results are in the repo.
 
 Happy to answer questions or take bug reports here or in the issue
-tracker. The package is at 0.1.0 — I'd love feedback on the API shape
+tracker. The package is at 0.2.0 — I'd love feedback on the API shape
 before locking in a 1.0.

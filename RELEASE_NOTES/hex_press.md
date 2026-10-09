@@ -1,6 +1,6 @@
-# Hex.pm press release — `zaml` 0.1.0
+# Hex.pm press release — `zaml` 0.2.0
 
-**Title:** zaml 0.1.0 — a fast YAML parser for Elixir, powered by libyaml + Zig
+**Title:** zaml 0.2.0 — a fast YAML parser for Elixir, powered by libyaml + Zig
 
 **Summary (one sentence):**
 A Zig NIF that wraps the same `libyaml` C library used by PyYAML, exposing
@@ -9,7 +9,7 @@ single pass.
 
 **Body:**
 
-We're pleased to announce the first release of [`zaml`](https://hex.pm/packages/zaml),
+We're pleased to announce the second release of [`zaml`](https://hex.pm/packages/zaml),
 a YAML 1.2 parser for Elixir built as a Zig NIF around
 [libyaml](https://pyyaml.org/wiki/LibYaml).
 
@@ -27,7 +27,7 @@ nested data but trails it on a wide flat map.
 
 | Parser | 1M-line flat (16 MB) | 100k-key nested (15 MB) |
 |---|---:|---:|
-| **`zaml` 0.1.0** | **0.84 s** | **0.53 s** |
+| **`zaml` 0.2.0** | **0.84 s** | **0.53 s** |
 | `glazer` 1.1.6 (C++ NIF, PGO) | 1.73 s | 0.41 s |
 | `fast_yaml` 1.0.40 (rebar3 NIF) | 2.54 s | 1.86 s |
 | `yamerl` 0.10.0 (pure Erlang) | 30.27 s | 23.88 s |
@@ -40,7 +40,24 @@ event stream is turned into Erlang terms: `zaml` builds maps directly,
 in a single pass, in Zig; `fast_yaml` constructs an intermediate
 proplist representation that gets converted to maps on request.
 
-**Features in 0.1.0:**
+**What's new in 0.2.0:**
+
+- **Single-shot map construction.** Maps are built with one
+  `enif_make_map_from_arrays` call per map instead of a per-pair
+  `enif_make_map_put`, eliminating the O(n²) rehashing that dominated
+  wide maps. This is the bulk of the speedup over `fast_yaml` on the
+  flat 1M-key fixture.
+- **Zero-copy scalar sub-binaries.** String scalars are returned as
+  sub-binaries of the input (`enif_make_sub_binary`) rather than copied
+  into freshly allocated binaries. The path is bounds-checked, with a
+  copy fallback for scalars that some libyaml versions may write into
+  their own buffer, so the change stays correct across libyaml versions.
+- **Anchors and aliases.** `&name` / `*name` now work end-to-end, with
+  anchor names copied into a parse-scoped arena because libyaml frees
+  the event buffer after each event. Previously any document using an
+  anchor returned `:parse_error`.
+
+**Features:**
 
 - `Zaml.load/1` → native Elixir term (maps, lists, integers, floats,
   booleans, `:nil`).
@@ -48,14 +65,15 @@ proplist representation that gets converted to maps on request.
   and float inference from plain scalars).
 - Respects explicit `!!str`/`!!int`/`!!float`/`!!bool`/`!!null` tags.
 - Anchors and aliases (`&name` / `*name`).
-- Returns `:parse_error` for malformed input.
-- `mix zaml_nif.bench PATH` head-to-head benchmark against `fast_yaml`.
+- Returns `:parse_error` for malformed input, `:nil` for an empty doc.
+- `mix zaml_nif.bench PATH` head-to-head benchmark against `fast_yaml`,
+  `glazer`, `yaml_elixir`, and `yamerl`.
 
 **Build & install:**
 
 ```elixir
 def deps do
-  [{:zaml, "~> 0.1.0"}]
+  [{:zaml, "~> 0.2.0"}]
 end
 ```
 

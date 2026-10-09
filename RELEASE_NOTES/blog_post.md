@@ -1,6 +1,6 @@
-# zaml 0.1.0 — a fast YAML parser for Elixir, and what I learned wiring libyaml to the BEAM via Zig
+# zaml 0.2.0 — a fast YAML parser for Elixir, and what I learned wiring libyaml to the BEAM via Zig
 
-*Announcing `zaml` 0.1.0, a Zig NIF for fast YAML 1.2 parsing in Elixir. Repo at https://github.com/niranjanaryan/zaml-elixir, package on Hex at https://hex.pm/packages/zaml.*
+*Announcing `zaml` 0.2.0, a Zig NIF for fast YAML 1.2 parsing in Elixir. Repo at https://github.com/niranjanaryan/zaml-elixir, package on Hex at https://hex.pm/packages/zaml.*
 
 ## TL;DR
 
@@ -131,7 +131,7 @@ short version:
 
 | Parser | 1M-line flat | 100k-key nested |
 |---|---|---|
-| `zaml` 0.1.0 (Zig NIF + libyaml) | **0.84 s** | **0.53 s** |
+| `zaml` 0.2.0 (Zig NIF + libyaml) | **0.84 s** | **0.53 s** |
 | `glazer` 1.1.6 (C++ NIF, PGO) | 1.73 s | 0.41 s |
 | `fast_yaml` 1.0.40 | 2.54 s (3.03×) | 1.86 s (3.50×) |
 | `yamerl` 0.10.0 (pure Erlang) | 30.27 s (36.1×) | 23.88 s (45.0×) |
@@ -204,7 +204,7 @@ A few things I didn't expect going in:
 
 ## What's next
 
-`zaml` is at 0.1.0. The obvious next steps:
+`zaml` is at 0.2.0. The obvious next steps:
 
 - **YAML merge keys (`<<: *alias`).** libyaml gives me a
   `MAPPING_START` event followed by a `SCALAR` whose value is `<<`.
@@ -214,7 +214,7 @@ A few things I didn't expect going in:
   `DOCUMENT_END` events; I just need to return a list of documents
   instead of only the first. This is a one-line change in the API
   contract, so I'd like feedback on whether to break the signature
-  now (0.2.0) or wait.
+  now (0.3.0) or wait.
 - **An emitter.** libyaml has an emitter API too, and writing a
   `Zaml.dump/1` would round out the package. Lower priority since
   most callers only need to read YAML.
@@ -229,7 +229,7 @@ Linux + multiple OTP versions before 1.0.
 ```elixir
 # mix.exs
 def deps do
-  [{:zaml, "~> 0.1.0"}]
+  [{:zaml, "~> 0.2.0"}]
 end
 ```
 
@@ -245,4 +245,4 @@ Links: [Hex.pm](https://hex.pm/packages/zaml) ·
 [CHANGELOG](https://github.com/niranjanaryan/zaml-elixir/blob/main/CHANGELOG.md) ·
 [Benchmarks](https://github.com/niranjanaryan/zaml-elixir/blob/main/benchmark/RESULTS.md)
 
-— *kubkon*
+— *Niranjan Aryan*
