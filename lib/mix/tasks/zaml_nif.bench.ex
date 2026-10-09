@@ -1,5 +1,17 @@
 defmodule Mix.Tasks.ZamlNif.Bench do
-  @moduledoc false
+  @moduledoc """
+  Benchmark `Zaml.load/1` against the other YAML parsers available on
+  the system (`fast_yaml`, `glazer`, `yaml_elixir`, `yamerl`).
+
+  Runs the given YAML file through every installed parser (any whose
+  dep isn't installed is skipped), once as a warm-up and then a number
+  of timed runs each, reporting average/min/max in seconds.
+
+  ## Usage
+
+      mix zaml_nif.bench benchmark/big.yml
+  """
+
   use Mix.Task
 
   @shortdoc "Benchmark Zaml against fast_yaml, glazer, yaml_elixir, and yamerl (default: benchmark/big.yml)"

@@ -1,5 +1,16 @@
 defmodule Mix.Tasks.ZamlNif.Build do
-  @moduledoc false
+  @moduledoc """
+  Builds the `zaml` Zig NIF shared library directly.
+
+  Normally the NIF is compiled automatically by `mix compile` through
+  `elixir_make`. This task lets you rebuild it by hand, e.g. after
+  changing the Zig source or the `Makefile`.
+
+  ## Usage
+
+      mix zaml_nif.build
+  """
+
   use Mix.Task
 
   @shortdoc "Builds the zaml Zig NIF shared library"
