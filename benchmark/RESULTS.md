@@ -5,7 +5,7 @@ document from a binary to native Erlang terms. The field:
 
 | Library | Version | Engine |
 | --- | --- | --- |
-| **`zaml`** (this repo) | 0.1.0 | Zig NIF over `libyaml` |
+| **`zaml`** (this repo) | 0.2.0 | Zig NIF over `libyaml` |
 | [`fast_yaml`](https://hex.pm/packages/fast_yaml) | 1.0.40 | rebar3 NIF over `libyaml` |
 | [`glazer`](https://hex.pm/packages/glazer) | 1.1.6 | C++ NIF, hand-rolled recursive-descent parser, PGO build |
 | [`yaml_elixir`](https://hex.pm/packages/yaml_elixir) | 2.12.2 | pure-Erlang `yamerl` + Elixir mapper |
