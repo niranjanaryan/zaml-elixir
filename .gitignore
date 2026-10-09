@@ -33,3 +33,6 @@ erl_crash.dump
 # Generated benchmark fixtures
 /benchmark/big.yml
 /benchmark/big_1m.yml
+
+# Draft release / marketing copy — not part of the shipped package.
+/RELEASE_NOTES/
