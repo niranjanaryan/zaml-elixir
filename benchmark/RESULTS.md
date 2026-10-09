@@ -18,10 +18,10 @@ self-contained, hand-rolled C++ parser (not libyaml), built with
 profile-guided optimisation and `-march=native`. The pure-Erlang
 options are included as the "what most apps ship today" baseline.
 
-> **TL;DR.** `zaml` is ~3× faster than `fast_yaml` on both fixtures and
-> ~35–48× faster than the pure-Erlang parsers. The hand-rolled `glazer`
-> NIF is faster than `zaml` on nested data (~1.35×) but slower on the
-> 1M-key flat map (~1.8×); no single library wins both. `zaml`'s
+> **TL;DR.** `zaml` is ~3.5× faster than `fast_yaml` on both fixtures and
+> ~49× faster than the pure-Erlang parsers. The hand-rolled `glazer`
+> NIF is faster than `zaml` on nested data (~1.4×) but slower on the
+> 1M-key flat map (~1.05×); no single library wins both. `zaml`'s
 > advantage is doing this on top of battle-tested `libyaml` rather than
 > a bespoke YAML parser.
 
@@ -32,14 +32,14 @@ options are included as the "what most apps ship today" baseline.
 
 | Parser | Avg (s) | Min (s) | Max (s) | Relative |
 | --- | ---: | ---: | ---: | ---: |
-| **Zaml (NIF, libyaml + Zig)** | **0.85** | 0.83 | 0.91 | **1.00×** |
-| `glazer 1.1.6` (C++ NIF, PGO) | 1.54 | 1.49 | 1.61 | 1.81× |
-| `fast_yaml 1.0.40` (rebar3 NIF) | 2.60 | 2.50 | 2.72 | 3.06× |
-| `yamerl 0.10.0` (raw, pure Erlang) | 28.94 | 27.93 | 30.70 | 34.0× |
-| `yaml_elixir 2.12.2` (yamerl + mapper) | 30.71 | 29.14 | 32.79 | 36.0× |
+| **Zaml (NIF, libyaml + Zig)** | **0.63** | 0.55 | 0.69 | **1.00×** |
+| `glazer 1.1.6` (C++ NIF, PGO) | 1.70 | 1.51 | 1.82 | 2.70× |
+| `fast_yaml 1.0.40` (rebar3 NIF) | 2.91 | 2.81 | 3.00 | 4.62× |
+| `yamerl 0.10.0` (raw, pure Erlang) | 28.94 | 27.93 | 30.70 | 45.9× |
+| `yaml_elixir 2.12.2` (yamerl + mapper) | 30.71 | 29.14 | 32.79 | 48.7× |
 
-On a single, very wide map, Zaml is the fastest: ~1.8× ahead of
-`glazer` and ~3.1× ahead of `fast_yaml`.
+On a single, very wide map, Zaml is the fastest: ~2.7× ahead of
+`glazer` and ~4.6× ahead of `fast_yaml`.
 
 ## 100k-key nested mapping
 
@@ -49,15 +49,15 @@ nested map), 15.2 MB, ~1.1 M lines.
 
 | Parser | Avg (s) | Min (s) | Max (s) | Relative |
 | --- | ---: | ---: | ---: | ---: |
-| **Zaml (NIF, libyaml + Zig)** | **0.51** | 0.50 | 0.51 | **1.00×** |
-| `glazer 1.1.6` (C++ NIF, PGO) | 0.38 | 0.34 | 0.41 | 0.74× |
-| `fast_yaml 1.0.40` (rebar3 NIF) | 1.71 | 1.64 | 1.81 | 3.36× |
-| `yamerl 0.10.0` (raw, pure Erlang) | 23.48 | 23.02 | 24.29 | 46.2× |
-| `yaml_elixir 2.12.2` (yamerl + mapper) | 24.25 | 24.21 | 24.80 | 47.7× |
+| **Zaml (NIF, libyaml + Zig)** | **0.53** | 0.52 | 0.56 | **1.00×** |
+| `glazer 1.1.6` (C++ NIF, PGO) | 0.38 | 0.37 | 0.39 | 0.72× |
+| `fast_yaml 1.0.40` (rebar3 NIF) | 1.89 | 1.80 | 1.96 | 3.55× |
+| `yamerl 0.10.0` (raw, pure Erlang) | 26.81 | 24.46 | 30.38 | 50.6× |
+| `yaml_elixir 2.12.2` (yamerl + mapper) | 25.95 | 24.39 | 28.58 | 48.9× |
 
 On deeply nested data, `glazer`'s hand-rolled parser pulls ahead
-(~1.35× over Zaml), while Zaml still beats `fast_yaml` by ~3.4× and
-the pure-Erlang parsers by ~46–48×. The `yaml_elixir`/`yamerl` gap is
+(~1.4× over Zaml), while Zaml still beats `fast_yaml` by ~3.5× and
+the pure-Erlang parsers by ~49–51×. The `yaml_elixir`/`yamerl` gap is
 almost entirely the pure-Erlang parse itself — the Elixir mapper adds
 only a few percent on top.
 
@@ -73,7 +73,7 @@ only a few percent on top.
   gets its speed from a thin Zig shim over libyaml, so it inherits
   libyaml's spec coverage and battle-testing.
 - **Zaml vs pure Erlang** — a C parser plus a single-pass Zig bridge is
-  ~35–48× faster than building every node through BEAM dispatches.
+  ~49–51× faster than building every node through BEAM dispatches.
 
 ## Hardware
 

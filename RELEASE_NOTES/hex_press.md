@@ -59,7 +59,7 @@ def deps do
 end
 ```
 
-Prerequisites: Zig 0.10+ and `libyaml` development headers. `mix.exs`
+Prerequisites: Zig 0.16+ and `libyaml` development headers. `mix.exs`
 auto-detects Homebrew/Linux locations and injects the right
 `CFLAGS`/`CPPFLAGS` for rebar3-compiled deps.
 

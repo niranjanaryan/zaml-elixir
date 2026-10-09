@@ -1,6 +1,6 @@
 # Build the NIF shared library for :zaml using libyaml (via Zig cImport).
 #
-# Requires the Zig toolchain (0.10+) and libyaml headers/library. On
+# Requires the Zig toolchain (0.16+) and libyaml headers/library. On
 # macOS via Homebrew this is auto-detected; on Debian/Ubuntu install
 # `libyaml-dev`; on Alpine `yaml-dev`. The Makefile falls back to
 # pkg-config, then to common well-known paths.

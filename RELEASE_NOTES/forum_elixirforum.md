@@ -85,7 +85,7 @@ def deps do
 end
 ```
 
-Build needs Zig 0.10+ and `libyaml` dev headers. The `mix.exs` shipped
+Build needs Zig 0.16+ and `libyaml` dev headers. The `mix.exs` shipped
 with the package auto-detects Homebrew/`/usr/local`/`/usr` libyaml
 locations and exports `CFLAGS`/`CPPFLAGS`/`LDFLAGS` for rebar3, so on
 a standard macOS or Debian/Ubuntu dev machine you only need:

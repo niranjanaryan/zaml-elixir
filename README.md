@@ -94,7 +94,7 @@ end
 
 The NIF is built at compile time from source. You need:
 
-- **Zig 0.10+** (`brew install zig`, `apt install zig`, `asdf install zig latest`, …)
+- **Zig 0.16+** (`brew install zig`, `apt install zig`, `asdf install zig latest`, …)
 - **libyaml** development headers
   - macOS: `brew install libyaml`
   - Debian/Ubuntu: `apt install libyaml-dev`
@@ -211,8 +211,8 @@ yaml.dump({f'a{i}': f'b{i+1}' for i in range(1_000_000)},
 "
 
 # 4. Run the head-to-head
-mix zaml_nif.bench benchmark/big.yml        # ~0.5 s
-mix zaml_nif.bench benchmark/big_1m.yml     # ~0.9 s
+mix zaml_nif.bench benchmark/big.yml        # Zaml parse ~0.5 s (all parsers run)
+mix zaml_nif.bench benchmark/big_1m.yml     # Zaml parse ~0.9 s (all parsers run)
 ```
 
 A separate cross-language script (`benchmark/run_benchmark.py`) also
