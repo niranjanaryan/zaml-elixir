@@ -8,10 +8,13 @@
 PyYAML. It exposes a single `Zaml.load/1` function that returns native
 Erlang terms. On an Apple M3 Pro, it parses:
 
-- a 1,000,000-line flat YAML file in **1.34 s** (vs. 1.88 s for
-  `fast_yaml`, the other libyaml wrapper on Hex), and
-- a 100,000-key nested YAML file in **0.50 s** (vs. 1.45 s for
-  `fast_yaml` and 8.49 s for PyYAML `CSafeLoader`).
+- a 1,000,000-line flat YAML file in **0.85 s** (vs. 1.54 s for
+  `glazer` and 2.60 s for `fast_yaml`), and
+- a 100,000-key nested YAML file in **0.51 s** (vs. 0.38 s for
+  `glazer` and 1.71 s for `fast_yaml`).
+
+The pure-Erlang parsers everyone ships today — `yamerl` / `yaml_elixir`
+— take **23–31 s** on the same fixtures.
 
 This post is the story of how I built it, the trade-offs I made, and
 why a thin Zig shim over a battle-tested C parser is still worth
@@ -128,16 +131,19 @@ short version:
 
 | Parser | 1M-line flat | 100k-key nested |
 |---|---|---|
-| `zaml` (NIF) | **1.34 s** | **0.50 s** |
-| `fast_yaml` 1.0.40 | 1.88 s (1.40×) | 1.45 s (2.91×) |
-| PyYAML `CSafeLoader` | — | 8.49 s (17.05×) |
-| PyYAML `SafeLoader` | — | 33.11 s (66.46×) |
-| ruamel.yaml (safe) | — | 48.39 s (97.11×) |
+| `zaml` 0.1.0 (Zig NIF + libyaml) | **0.85 s** | **0.51 s** |
+| `glazer` 1.1.6 (C++ NIF, PGO) | 1.54 s | 0.38 s |
+| `fast_yaml` 1.0.40 | 2.60 s (3.06×) | 1.71 s (3.36×) |
+| `yamerl` 0.10.0 (pure Erlang) | 28.94 s (34.0×) | 23.48 s (46.2×) |
+| `yaml_elixir` 2.12.2 | 30.71 s (36.0×) | 24.25 s (47.7×) |
 
-`zaml` is 1.4× faster than the next-fastest library on the flat
-mapping (where most of the time is in libyaml itself, so the gap
-shrinks), and 2.9× faster on the nested mapping (where the
-proplist-to-map conversion in `fast_yaml` is the dominant cost).
+`zaml` is ~3× faster than `fast_yaml` on both shapes — the
+proplist-to-map conversion in `fast_yaml` is the dominant cost — and
+~35–48× faster than the pure-Erlang parsers. The one library that
+edges it out is `glazer`, a hand-rolled C++ YAML parser (not libyaml)
+built with profile-guided optimisation: it wins on the deeply nested
+fixture (~1.35×) and loses on the single wide 1M-key map (~1.8×). I'd
+rather publish that than cherry-pick a shape.
 
 The benchmark fixtures are committed as generators; the actual 16 MB
 YAML file is `.gitignore`d. You can re-create the 1M-line fixture
@@ -191,8 +197,10 @@ A few things I didn't expect going in:
    not the thing you think is the right answer.** The interesting
    comparison isn't `zaml` vs `yamerl` (everyone knows C is faster
    than Erlang); it's `zaml` vs `fast_yaml` (both wrap the same C
-   library). The result there is a real, defensible 1.4–2.9×
-   improvement on the same underlying parser.
+   library) and vs `glazer` (the newer hand-rolled NIF). The `fast_yaml`
+   result is a real, defensible ~3× improvement on the same underlying
+   parser; `glazer` beats `zaml` on nested data and loses on flat maps,
+   and that's worth saying out loud rather than hiding.
 
 ## What's next
 

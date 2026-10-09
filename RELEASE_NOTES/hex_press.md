@@ -19,21 +19,26 @@ a YAML 1.2 parser for Elixir built as a Zig NIF around
 and correct, but slow. The existing native option on Hex,
 [`fast_yaml`](https://hex.pm/packages/fast_yaml), also wraps libyaml —
 and is the obvious thing to compare against. We do, and the numbers
-favour `zaml`.
+favour `zaml`. We also benchmark the newer hand-rolled C++ NIF
+[`glazer`](https://hex.pm/packages/glazer), which beats `zaml` on
+nested data but trails it on a wide flat map.
 
-**Headline benchmarks (Apple M3 Pro, libyaml 0.2.5, avg of 3 runs):**
+**Headline benchmarks (Apple M3 Pro, avg of 5 runs):**
 
-- **1,000,000-line flat mapping (16 MB):** `zaml` 1.34 s vs
-  `fast_yaml` 1.88 s — **1.4× faster**.
-- **100,000-key nested mapping (15 MB):** `zaml` 0.50 s vs
-  `fast_yaml` 1.45 s — **2.9× faster**, and ~17× faster than PyYAML
-  `CSafeLoader` on the same fixture.
+| Parser | 1M-line flat (16 MB) | 100k-key nested (15 MB) |
+|---|---:|---:|
+| **`zaml` 0.1.0** | **0.85 s** | **0.51 s** |
+| `glazer` 1.1.6 (C++ NIF, PGO) | 1.54 s | 0.38 s |
+| `fast_yaml` 1.0.40 (rebar3 NIF) | 2.60 s | 1.71 s |
+| `yamerl` 0.10.0 (pure Erlang) | 28.94 s | 23.48 s |
+| `yaml_elixir` 2.12.2 (yamerl) | 30.71 s | 24.25 s |
 
-Both libraries wrap the same `libyaml` C parser, so the speedup comes
-from how quickly the libyaml event stream is turned into Erlang terms:
-`zaml` builds maps directly, in a single pass, in Zig; `fast_yaml`
-constructs an intermediate proplist representation that gets converted
-to maps on request.
+`zaml` is ~3× faster than `fast_yaml` and ~35–48× faster than the
+pure-Erlang parsers. Both `zaml` and `fast_yaml` wrap the same
+`libyaml` C parser, so that speedup comes from how quickly the libyaml
+event stream is turned into Erlang terms: `zaml` builds maps directly,
+in a single pass, in Zig; `fast_yaml` constructs an intermediate
+proplist representation that gets converted to maps on request.
 
 **Features in 0.1.0:**
 

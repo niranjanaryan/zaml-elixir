@@ -2,14 +2,15 @@ defmodule Mix.Tasks.ZamlNif.Bench do
   @moduledoc false
   use Mix.Task
 
-  @shortdoc "Benchmark Zaml against fast_yaml on a YAML file (default: benchmark/big.yml)"
+  @shortdoc "Benchmark Zaml against fast_yaml, glazer, yaml_elixir, and yamerl (default: benchmark/big.yml)"
   @recursive true
+
+  @label_width 30
 
   @impl Mix.Task
   def run(args) do
     ensure_yaml_compiled()
-    Application.ensure_all_started(:fast_yaml)
-    Application.ensure_all_started(:zaml)
+    start_apps()
 
     path =
       case args do
@@ -18,7 +19,7 @@ defmodule Mix.Tasks.ZamlNif.Bench do
       end
 
     {:ok, contents} = File.read(path)
-    n_runs = 3
+    n_runs = 5
 
     n_lines =
       case System.cmd("wc", ["-l", path], stderr_to_stdout: true) do
@@ -33,50 +34,103 @@ defmodule Mix.Tasks.ZamlNif.Bench do
     Benchmarking on #{delimit(byte_size(contents))} byte, #{n_lines} line YAML file (#{path})
     """)
 
-    # --- Zaml ---
-    {zaml_times, _} = bench(fn -> Zaml.load(contents) end, n_runs)
-    {zaml_avg, zaml_min, zaml_max} = summarize(zaml_times)
+    results =
+      parsers()
+      |> Enum.filter(fn {_label, app, _fun} -> available?(app) end)
+      |> Enum.map(fn {label, _app, fun} -> {label, measure(fun, contents, n_runs)} end)
 
-    IO.puts(
-      "  Zaml (NIF, libyaml + Zig)    avg #{fmt_sec(zaml_avg)}  (min #{fmt_sec(zaml_min)}, max #{fmt_sec(zaml_max)})"
-    )
+    rows =
+      Enum.map(results, fn {label, {avg, min, max}} ->
+        "  #{pad(label)} avg #{fmt_sec(avg)}  (min #{fmt_sec(min)}, max #{fmt_sec(max)})"
+      end)
 
-    # --- fast_yaml ---
-    {fy_times, _} =
-      bench(
-        fn ->
-          case :fast_yaml.decode(contents, [:sane_scalars, :maps]) do
-            {:ok, docs} -> docs
-            other -> other
-          end
-        end,
-        n_runs
-      )
+    Enum.each(rows, &IO.puts/1)
 
-    {fy_avg, fy_min, fy_max} = summarize(fy_times)
-    IO.puts("  fast_yaml 1.0 (rebar3 NIF)   avg #{fmt_sec(fy_avg)}  (min #{fmt_sec(fy_min)}, max #{fmt_sec(fy_max)})")
+    skipped =
+      parsers()
+      |> Enum.reject(fn {_label, app, _fun} -> available?(app) end)
+      |> Enum.map(fn {label, _app, _fun} -> label end)
 
-    IO.puts("")
-    IO.puts("Summary (avg seconds over #{n_runs} runs):")
-    IO.puts("  Zaml (NIF, libyaml + Zig)    #{fmt_sec(zaml_avg)}")
-    IO.puts("  fast_yaml 1.0                #{fmt_sec(fy_avg)}")
-    IO.puts("")
-    IO.puts("  Zaml vs fast_yaml: #{:io_lib.format("~.2fx", [fy_avg / zaml_avg])}")
+    if skipped != [] do
+      IO.puts("")
+      IO.puts("  (skipped, not available: #{Enum.join(skipped, ", ")})")
+    end
+
+    print_summary(results, n_runs)
   end
 
-  defp bench(fun, n_runs) do
-    Enum.map(1..n_runs, fn _ ->
-      {us, result} = :timer.tc(fun)
-      {us / 1_000_000.0, result}
+  defp parsers do
+    [
+      {"Zaml (NIF, libyaml + Zig)", :zaml, fn c -> Zaml.load(c) end},
+      {"fast_yaml 1.0 (rebar3 NIF)", :fast_yaml, fn c -> :fast_yaml.decode(c, [:sane_scalars, :maps]) end},
+      {"glazer_yaml 1.1 (C++ NIF)", :glazer, fn c -> :glazer_yaml.decode(c, [:use_nil]) end},
+      {"yaml_elixir 2.12 (yamerl)", :yaml_elixir, fn c -> YamlElixir.read_from_string(c) end},
+      {"yamerl 0.10 (raw)", :yamerl,
+       fn c ->
+         :yamerl_constr.string(c,
+           detailed_constr: true,
+           str_node_as_binary: true,
+           keep_duplicate_keys: true
+         )
+       end}
+    ]
+  end
+
+  defp available?(:zaml), do: Code.ensure_loaded?(Zaml)
+  defp available?(:fast_yaml), do: Code.ensure_loaded?(:fast_yaml)
+  defp available?(:glazer), do: Code.ensure_loaded?(:glazer_yaml)
+  defp available?(:yaml_elixir), do: Code.ensure_loaded?(YamlElixir)
+  defp available?(:yamerl), do: Code.ensure_loaded?(:yamerl_constr)
+
+  defp start_apps do
+    for app <- [:zaml, :fast_yaml, :glazer, :yamerl] do
+      Application.ensure_all_started(app)
+    end
+
+    :ok
+  end
+
+  defp measure(fun, contents, n_runs) do
+    # Warm up once (JIT, caches, page faults) so it isn't charged to run 1.
+    fun.(contents)
+    :erlang.garbage_collect()
+
+    1..n_runs
+    |> Enum.map(fn _ ->
+      # Drop the previous result before timing so GC pauses from freed
+      # 1M-entry maps aren't charged to the next parser's run.
+      :erlang.garbage_collect()
+      {us, _result} = :timer.tc(fn -> fun.(contents) end)
+      us / 1_000_000.0
     end)
-    |> Enum.unzip()
-    |> then(fn {times, results} -> {times, hd(results)} end)
+    |> then(fn times ->
+      {Enum.sum(times) / length(times), Enum.min(times), Enum.max(times)}
+    end)
   end
 
-  defp summarize(times) do
-    avg = Enum.sum(times) / length(times)
-    {avg, Enum.min(times), Enum.max(times)}
+  defp print_summary(results, n_runs) do
+    case results do
+      [] ->
+        :ok
+
+      [{zaml_label, {zaml_avg, _, _}} | _] ->
+        IO.puts("")
+        IO.puts("Summary (avg seconds over #{n_runs} runs):")
+
+        Enum.each(results, fn {label, {avg, _, _}} ->
+          IO.puts("  #{pad(label)} #{fmt_sec(avg)}")
+        end)
+
+        IO.puts("")
+
+        Enum.each(tl(results), fn {label, {avg, _, _}} ->
+          ratio = avg / zaml_avg
+          IO.puts("  #{zaml_label} vs #{label}: #{:io_lib.format("~.2fx", [ratio])}")
+        end)
+    end
   end
+
+  defp pad(label), do: String.pad_trailing(label, @label_width)
 
   defp fmt_sec(s) when s >= 1.0, do: :io_lib.format("~.3f s", [s]) |> List.to_string()
   defp fmt_sec(s), do: :io_lib.format("~.1f ms", [s * 1000.0]) |> List.to_string()

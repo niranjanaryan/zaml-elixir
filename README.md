@@ -33,9 +33,15 @@ also wraps `libyaml`.
 `Zaml` is `fast_yaml` but with a thinner event-to-term bridge: the
 libyaml event stream is consumed in Zig and turned into Erlang terms
 in a single pass, building maps directly instead of going through
-intermediate proplists. That gives a **~1.35× speedup on a 1M-line
-flat mapping** and a **~3× speedup on nested mappings**. See
-[benchmarks](#benchmarks) below.
+intermediate proplists. That gives a **~3× speedup over `fast_yaml`**
+on both flat and nested mappings, and **35–48× over the pure-Erlang
+parsers**. See [benchmarks](#benchmarks) below.
+
+The newer [`glazer`](https://hex.pm/packages/glazer) NIF is the one
+library that can beat `Zaml` — it's faster on nested data (~1.35×) and
+slower on a single flat 1M-key map (~1.8×). It gets there with a
+hand-rolled C++ YAML parser built with profile-guided optimisation,
+whereas `Zaml` deliberately stays on top of battle-tested `libyaml`.
 
 The toolchain is also notably lighter: `Zaml` is built with the
 single `zig` CLI invocation you see in the `Makefile`, with no
@@ -50,25 +56,27 @@ Full report at [`benchmark/RESULTS.md`](benchmark/RESULTS.md).
 
 | Parser                              | Avg (s) | Relative |
 | ----------------------------------- | -------:| --------:|
-| **Zaml (NIF, libyaml + Zig)**       | **1.34**| **1.00x**|
-| `fast_yaml 1.0.40` (rebar3 NIF)     |  1.88   |   1.40x  |
-
-Both wrap the same `libyaml` C parser; the speedup comes from how
-quickly the event stream is turned into Erlang terms in a single pass.
+| **Zaml (NIF, libyaml + Zig)**       | **0.85**| **1.00×**|
+| `glazer 1.1.6` (C++ NIF, PGO)       |  1.54   |   1.81×  |
+| `fast_yaml 1.0.40` (rebar3 NIF)     |  2.60   |   3.06×  |
+| `yamerl 0.10.0` (pure Erlang)       | 28.94   |  34.0×   |
+| `yaml_elixir 2.12.2` (yamerl)       | 30.71   |  36.0×   |
 
 ### 100k-key nested mapping (15 MB)
 
 | Parser                              | Avg (s) | Relative |
 | ----------------------------------- | -------:| --------:|
-| **Zaml (NIF, libyaml + Zig)**       | **0.50**| **1.00x**|
-| `fast_yaml 1.0.40` (rebar3 NIF)     |  1.45   |   2.91x  |
-| PyYAML `CSafeLoader` (libyaml)      |  8.49   |  17.05x  |
-| PyYAML `SafeLoader` (pure Python)   | 33.11   |  66.46x  |
-| ruamel.yaml (`safe`, pure Python)   | 48.39   |  97.11x  |
+| **Zaml (NIF, libyaml + Zig)**       | **0.51**| **1.00×**|
+| `glazer 1.1.6` (C++ NIF, PGO)       |  0.38   |   0.74×  |
+| `fast_yaml 1.0.40` (rebar3 NIF)     |  1.71   |   3.36×  |
+| `yamerl 0.10.0` (pure Erlang)       | 23.48   |  46.2×   |
+| `yaml_elixir 2.12.2` (yamerl)       | 24.25   |  47.7×   |
 
-The gap widens to **2.91×** on nested data: Zaml builds Erlang maps
-directly from the event stream, while `fast_yaml` constructs
-proplists first and then converts to maps on request.
+Both `Zaml` and `fast_yaml` wrap the same `libyaml` C parser, so the
+~3× gap there is purely the event→term bridge. `glazer` is a
+different design (a hand-rolled C++ parser, not libyaml): it wins on
+nested data and loses on the wide flat map, so there's no single
+"fastest" library across shapes.
 
 ## Installation
 
@@ -141,6 +149,35 @@ iex> Zaml.load("""
 
 > **Note:** YAML merge keys (`<<: *alias`) are not yet supported.
 
+### Using the alternatives
+
+For reference, here's how the same parse is done with each library the
+benchmarks compare against:
+
+```elixir
+# zaml — returns the first document as a term
+Zaml.load(yaml)
+
+# fast_yaml — returns {:ok, [doc]}; :maps gives maps instead of proplists
+:fast_yaml.decode(yaml, [:sane_scalars, :maps])
+
+# glazer — hand-rolled C++ NIF; use_nil maps null -> nil (default is :null)
+:glazer_yaml.decode(yaml, [:use_nil])
+# ...or the Elixir wrapper:
+Glazer.YAML.decode!(yaml)
+
+# yaml_elixir — the most widely used wrapper, over pure-Erlang yamerl
+YamlElixir.read_from_string(yaml)   # => {:ok, term}
+
+# yamerl directly (raw records; yaml_elixir adds the Elixir mapper)
+:yamerl_constr.string(yaml, detailed_constr: true, str_node_as_binary: true)
+```
+
+Two other libraries in the space aren't in the parse benchmarks:
+[`ymlr`](https://hex.pm/packages/ymlr) is an **encoder** (`Ymlr.document!/1`),
+not a parser, and [`yamleam`](https://hex.pm/packages/yamleam) is a
+pure-Gleam parser, so it isn't reachable as a plain Mix dependency.
+
 ## Running tests
 
 ```bash
@@ -153,10 +190,12 @@ tags, anchors, empty input, and parse-error handling.
 ## Running benchmarks
 
 The repo ships a Mix task that compares the Elixir NIF against
-`fast_yaml` (the existing libyaml wrapper on Hex) on the same fixture.
+`fast_yaml`, `glazer`, `yaml_elixir`, and `yamerl` on the same fixture
+(any parser whose dependency isn't installed is skipped).
 
 ```bash
-# 1. Build the Elixir NIF + the fast_yaml dep
+# 1. Build the Elixir NIF + the benchmark deps
+#    (glazer needs a C++23 compiler and rebar3; `brew install rebar3`)
 mix deps.get
 mix compile
 
@@ -173,7 +212,7 @@ yaml.dump({f'a{i}': f'b{i+1}' for i in range(1_000_000)},
 
 # 4. Run the head-to-head
 mix zaml_nif.bench benchmark/big.yml        # ~0.5 s
-mix zaml_nif.bench benchmark/big_1m.yml     # ~1.3 s
+mix zaml_nif.bench benchmark/big_1m.yml     # ~0.9 s
 ```
 
 A separate cross-language script (`benchmark/run_benchmark.py`) also

@@ -57,6 +57,8 @@ defmodule Zaml.MixProject do
     [
       {:elixir_make, "~> 0.9", runtime: false},
       {:fast_yaml, "~> 1.0", only: [:dev, :test], runtime: false},
+      {:glazer, "~> 1.1", only: [:dev, :test], runtime: false, manager: :mix},
+      {:yaml_elixir, "~> 2.9", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.38", only: :dev, runtime: false}
     ]
   end
