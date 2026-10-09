@@ -33,12 +33,12 @@ export fn zaml_load_nif(env: *erl_nif.ErlNifEnv, argc: c_int, argv: [*]const erl
     const data: [*]const u8 = @ptrCast(bin.data);
     const input = data[0..bin.size];
 
-    return parse_yaml(env, input_term, input) catch {
+    return parse_yaml(env, input) catch {
         return erl_nif.enif_make_atom(env, "parse_error");
     };
 }
 
-fn parse_yaml(env: *erl_nif.ErlNifEnv, input_term: erl_nif.ERL_NIF_TERM, input: []const u8) !erl_nif.ERL_NIF_TERM {
+fn parse_yaml(env: *erl_nif.ErlNifEnv, input: []const u8) !erl_nif.ERL_NIF_TERM {
     var parser: yaml.yaml_parser_t = undefined;
     if (yaml.yaml_parser_initialize(&parser) == 0) return error.NoParser;
     defer yaml.yaml_parser_delete(&parser);
