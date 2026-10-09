@@ -104,11 +104,14 @@ end
 
 Build needs Zig 0.16+ and `libyaml` dev headers. The `mix.exs` shipped
 with the package auto-detects Homebrew/`/usr/local`/`/usr` libyaml
-locations and exports `CFLAGS`/`CPPFLAGS`/`LDFLAGS` for rebar3, so on
-a standard macOS or Debian/Ubuntu dev machine you only need:
+locations and exports `CFLAGS`/`CPPFLAGS`/`LDFLAGS` for rebar3, so on a
+standard macOS or Debian/Ubuntu dev machine you only need:
 
 ```bash
-brew install libyaml   # or: apt install libyaml-dev
+brew install zig libyaml          # macOS
+# Debian/Ubuntu: apt install libyaml-dev, and install Zig 0.16+
+# from https://ziglang.org/download (or your distro's package).
+
 mix deps.get
 mix compile
 ```
