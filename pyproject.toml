@@ -2,11 +2,13 @@
 # Only build CPython (no PyPy) on x86_64 architecture
 build = "cp*x86_64"
 before-all = [
-    # Install Zig on CentOS
+    # libyaml headers + library
+    "yum install -y libyaml-devel",
+    # Install Zig
     "cd /tmp",
-    "curl -O https://ziglang.org/download/0.9.1/zig-linux-x86_64-0.9.1.tar.xz",
-    "tar xf zig-linux-x86_64-0.9.1.tar.xz",
-    "mv zig-linux-x86_64-0.9.1 /usr/local/bin/zig-linux-0.9.1"
+    "curl -O https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz",
+    "tar xf zig-x86_64-linux-0.16.0.tar.xz",
+    "mv zig-x86_64-linux-0.16.0 /usr/local/bin/zig-0.16.0",
 ]
-environment = { PATH="$PATH:/usr/local/bin/zig-linux-0.9.1" }
-test-command = 'python -c "import zaml; assert zaml.load() == 1"'
+environment = { PATH="$PATH:/usr/local/bin/zig-0.16.0" }
+test-command = 'python -c "import zaml; assert zaml.load(\"a: 1\nb: [x, y]\n\") == {\"a\": 1, \"b\": [\"x\", \"y\"]}"'

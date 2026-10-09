@@ -5,7 +5,7 @@ failed = subprocess.call(["pip", "install", "-e", "."])
 assert not failed
 
 import yaml as pyyaml
-import benchmark as zaml
+import zaml
 from ruamel.yaml import YAML
 import time
 

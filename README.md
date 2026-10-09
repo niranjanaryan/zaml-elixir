@@ -2,9 +2,9 @@
 
 A **fast YAML 1.2 parser for Elixir**, powered by a Zig NIF that wraps
 [libyaml](https://pyyaml.org/wiki/LibYAML). Heavily inspired by
-[`kubkon/zig-yaml`](https://github.com/kubkon/zig-yaml) and the original
-Python prototype that lives in this same repository (see
-[Python prototype](#python-prototype) below).
+[`kubkon/zig-yaml`](https://github.com/kubkon/zig-yaml), with a matching
+Python extension that lives in this same repository (see
+[Python extension](#python-extension) below).
 
 ```elixir
 iex> Zaml.load("foo: 1\nbar: [a, b, 3.14]\n")
@@ -252,25 +252,39 @@ numbers.
 ## Credits
 
 - [`kubkon/zig-yaml`](https://github.com/kubkon/zig-yaml) — the original
-  pure-Zig YAML parser this project took inspiration from (and that
-  still powers the Python prototype in this repo).
+  pure-Zig YAML parser that inspired this project.
 - [`yaml/libyaml`](https://github.com/yaml/libyaml) — the production
-  YAML 1.1 parser that the Elixir NIF wraps.
+  YAML 1.1 parser that both the Elixir NIF and the Python extension wrap.
 
 ---
 
-## Python prototype
+## Python extension
 
-The original proof-of-concept — a `pip install`-able Python C extension
-built in pure Zig by importing `Python.h` directly — still lives in
-this repository. It demonstrates that you can build a CPython extension
-module using only the Zig toolchain, with no `clang` or `setuptools`
-workarounds. It was the subject of a [PyCon DE 2022 talk][talk] on
-*Speeding Up Python with Zig*.
+The original proof-of-concept has grown into a real, `pip install`-able
+CPython extension: `zaml.load(str_or_bytes)` parses a YAML document with
+libyaml and returns native Python objects. Like the Elixir NIF, it is
+built in pure Zig by importing `Python.h` directly — no `clang` or
+setuptools C glue. It began as the subject of a [PyCon DE 2022 talk][talk]
+on *Speeding Up Python with Zig*.
 
 [talk]: https://2022.pycon.de/program/DFWSQR/
 
-### Building the Python prototype
+Scalars are resolved with the YAML 1.2 core schema (`int`, arbitrary-
+precision `int`, `float`, `bool`, `null`), `!!str` / `!!int` / `!!float` /
+`!!bool` / `!!null` tags are honored, and anchors/aliases are supported.
+Only the first document in a stream is returned; malformed input raises
+`ValueError`.
+
+### Prerequisites
+
+- **Zig 0.16+**
+- **libyaml** (`brew install libyaml`, `apt install libyaml-dev`,
+  `dnf install libyaml-devel`)
+
+`builder.py` auto-detects libyaml under `/opt/homebrew`, `/usr/local`,
+and `/usr`. Override with `YAML_INCLUDE_DIR` / `YAML_LIB_DIR` if needed.
+
+### Building the Python extension
 
 ```bash
 python -m venv .venv
@@ -279,35 +293,24 @@ pip install -e .
 python test.py
 ```
 
-**Note:** the Python prototype pins Zig 0.10.0. Newer Zig versions have
-dropped fields from `struct _object` that the original `zamlmodule.zig`
-references, so the prototype needs the older toolchain to build. Use the
-Elixir NIF (above) for current Zig versions.
-
 ### Python benchmark
 
 ```bash
 cd benchmark
-python benchmark.py
+python run_benchmark.py
 ```
 
-The original prototype was benchmarked on a 2.3 GHz Quad-Core Intel
-Core i7 as follows:
+On an Apple M3 Pro (Python 3.14), parsing a 15 MB YAML document:
 
 ```text
-zaml took 0.89 seconds
-PyYAML CSafeLoader took 13.36 seconds
-ruamel took 38.86 seconds
-PyYAML SafeLoader took 81.78 seconds
+zaml                0.51 s    1.0×
+PyYAML CSafeLoader  9.16 s   17.8×
+PyYAML SafeLoader  33.85 s   65.9×
+ruamel.yaml        48.40 s   94.2×
 ```
 
-The prototype is intentionally minimal (top-level `dict[str, str]`
-only); it was meant to validate the toolchain story, not to compete
-with full YAML libraries.
+### Cross-platform notes (Python extension)
 
-### Cross-platform notes (Python prototype)
-
-- **Linux:** tested via Docker (`fedora` base image, `zig` and
-  `python3-devel` from dnf).
-- **Windows:** tested with Parallels.
-- **macOS:** developed on macOS; no cross-host testing documented.
+- **macOS:** `brew install zig libyaml`.
+- **Linux:** tested via Docker (`fedora` base image, `libyaml-devel` via
+  the distro package manager).
