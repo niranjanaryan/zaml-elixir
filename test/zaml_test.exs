@@ -40,8 +40,21 @@ defmodule ZamlTest do
     assert Zaml.load("") == nil
   end
 
+  test "parses scalar, list, and map anchors with aliases" do
+    assert Zaml.load("a: &x 1\nb: *x\n") == %{"a" => 1, "b" => 1}
+    assert Zaml.load("a: &x [1, 2]\nb: *x\n") == %{"a" => [1, 2], "b" => [1, 2]}
+
+    assert Zaml.load("""
+           defaults: &d {a: 1, b: 2}
+           prod: *d
+           """) == %{
+             "defaults" => %{"a" => 1, "b" => 2},
+             "prod" => %{"a" => 1, "b" => 2}
+           }
+  end
+
   @tag :skip
-  test "parses anchors" do
+  test "parses merge keys" do
     yaml = """
     defaults: &defaults
       a: 1

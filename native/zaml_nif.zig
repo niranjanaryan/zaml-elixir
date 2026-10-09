@@ -12,6 +12,10 @@ const FrameKind = enum { map, list };
 
 const Frame = struct {
     kind: FrameKind,
+    map: erl_nif.ERL_NIF_TERM = 0,
+    // Anchor name attached to this collection (from `&name`), owned by the
+    // anchor arena. Bound to the finished term when the collection closes.
+    anchor: ?[]const u8 = null,
     list_buf: std.ArrayList(erl_nif.ERL_NIF_TERM) = std.ArrayList(erl_nif.ERL_NIF_TERM).empty,
     pending_key: ?erl_nif.ERL_NIF_TERM = null,
     // Accumulated key/value pairs for the current map, flushed with a
@@ -32,31 +36,12 @@ export fn zaml_load_nif(env: *erl_nif.ErlNifEnv, argc: c_int, argv: [*]const erl
     const data: [*]const u8 = @ptrCast(bin.data);
     const input = data[0..bin.size];
 
-    return parse_yaml(env, input_term, input) catch {
+    return parse_yaml(env, input) catch {
         return erl_nif.enif_make_atom(env, "parse_error");
     };
 }
 
-fn make_string_sub(env: *erl_nif.ErlNifEnv, input_term: erl_nif.ERL_NIF_TERM, input: []const u8, value: []const u8) erl_nif.ERL_NIF_TERM {
-    // libyaml processes plain scalars in place within the input buffer, so we
-    // can sub-binary them with zero copy. For quoted/block/folded scalars
-    // libyaml 0.2.x also reuses the input buffer, but to stay correct across
-    // libyaml versions we only sub-binary when the pointer provably lies
-    // inside `input`; otherwise we fall back to a fresh binary + copy.
-    const base = @intFromPtr(input.ptr);
-    const p = @intFromPtr(value.ptr);
-    if (p >= base and p + value.len <= base + input.len) {
-        const offset: usize = @intCast(p - base);
-        return erl_nif.enif_make_sub_binary(env, input_term, offset, value.len);
-    }
-    var term: erl_nif.ERL_NIF_TERM = 0;
-    const data = erl_nif.enif_make_new_binary(env, @intCast(value.len), &term);
-    const dst: [*]u8 = @ptrCast(data);
-    @memcpy(dst[0..value.len], value);
-    return term;
-}
-
-fn parse_yaml(env: *erl_nif.ErlNifEnv, input_term: erl_nif.ERL_NIF_TERM, input: []const u8) !erl_nif.ERL_NIF_TERM {
+fn parse_yaml(env: *erl_nif.ErlNifEnv, input: []const u8) !erl_nif.ERL_NIF_TERM {
     var parser: yaml.yaml_parser_t = undefined;
     if (yaml.yaml_parser_initialize(&parser) == 0) return error.NoParser;
     defer yaml.yaml_parser_delete(&parser);
@@ -73,7 +58,14 @@ fn parse_yaml(env: *erl_nif.ErlNifEnv, input_term: erl_nif.ERL_NIF_TERM, input: 
         stack.deinit(yaml_alloc);
     }
 
-    var anchors = std.StringHashMap(erl_nif.ERL_NIF_TERM).init(yaml_alloc);
+    // Anchor names come from libyaml event buffers that are freed after every
+    // event, so they must be copied into memory that outlives the event. The
+    // arena keeps every name alive for the whole parse and frees them at once.
+    var anchor_arena = std.heap.ArenaAllocator.init(yaml_alloc);
+    defer anchor_arena.deinit();
+    const anchor_alloc = anchor_arena.allocator();
+
+    var anchors = std.StringHashMap(erl_nif.ERL_NIF_TERM).init(anchor_alloc);
     defer anchors.deinit();
 
     var first_doc: ?erl_nif.ERL_NIF_TERM = null;
@@ -101,29 +93,39 @@ fn parse_yaml(env: *erl_nif.ErlNifEnv, input_term: erl_nif.ERL_NIF_TERM, input: 
             yaml.YAML_SCALAR_EVENT => {
                 const value = std.mem.span(event.data.scalar.value);
                 const tag = if (event.data.scalar.tag) |t| std.mem.span(t) else "";
-                const term = try scalar_term(env, input_term, input, value, tag);
+                const term = try scalar_term(env, value, tag);
 
                 if (event.data.scalar.anchor) |a| {
-                    try anchors.put(std.mem.span(a), term);
+                    try anchors.put(try anchor_alloc.dupe(u8, std.mem.span(a)), term);
                 }
                 try deliver_value(&stack, &first_doc, term);
             },
 
             yaml.YAML_SEQUENCE_START_EVENT => {
-                try stack.append(yaml_alloc, .{ .kind = .list });
+                var frame = Frame{ .kind = .list };
+                if (event.data.sequence_start.anchor) |a| {
+                    frame.anchor = try anchor_alloc.dupe(u8, std.mem.span(a));
+                }
+                try stack.append(yaml_alloc, frame);
             },
             yaml.YAML_SEQUENCE_END_EVENT => {
                 const top = stack.pop() orelse return error.UnexpectedEvent;
                 const term = erl_nif.enif_make_list_from_array(env, top.list_buf.items.ptr, @intCast(top.list_buf.items.len));
+                if (top.anchor) |name| try anchors.put(name, term);
                 try deliver_value(&stack, &first_doc, term);
             },
 
             yaml.YAML_MAPPING_START_EVENT => {
-                try stack.append(yaml_alloc, .{ .kind = .map });
+                var frame = Frame{ .kind = .map };
+                if (event.data.mapping_start.anchor) |a| {
+                    frame.anchor = try anchor_alloc.dupe(u8, std.mem.span(a));
+                }
+                try stack.append(yaml_alloc, frame);
             },
             yaml.YAML_MAPPING_END_EVENT => {
                 const top = stack.pop() orelse return error.UnexpectedEvent;
                 const term = try make_map(env, top.keys, top.vals);
+                if (top.anchor) |name| try anchors.put(name, term);
                 try deliver_value(&stack, &first_doc, term);
             },
 
@@ -164,20 +166,20 @@ fn deliver_value(stack: *std.ArrayList(Frame), first_doc: *?erl_nif.ERL_NIF_TERM
     }
 }
 
-fn scalar_term(env: *erl_nif.ErlNifEnv, input_term: erl_nif.ERL_NIF_TERM, input: []const u8, value: []const u8, tag: []const u8) !erl_nif.ERL_NIF_TERM {
+fn scalar_term(env: *erl_nif.ErlNifEnv, value: []const u8, tag: []const u8) !erl_nif.ERL_NIF_TERM {
     if (tag.len > 0) {
-        if (std.mem.endsWith(u8, tag, ":str")) return make_string_sub(env, input_term, input, value);
-        if (std.mem.endsWith(u8, tag, ":int")) return make_int_term(env, value) catch return make_string_sub(env, input_term, input, value);
-        if (std.mem.endsWith(u8, tag, ":float")) return make_float_term(env, value) catch return make_string_sub(env, input_term, input, value);
+        if (std.mem.endsWith(u8, tag, ":str")) return make_string_term(env, value);
+        if (std.mem.endsWith(u8, tag, ":int")) return make_int_term(env, value) catch return make_string_term(env, value);
+        if (std.mem.endsWith(u8, tag, ":float")) return make_float_term(env, value) catch return make_string_term(env, value);
         if (std.mem.endsWith(u8, tag, ":bool")) return make_bool_term(env, value);
         if (std.mem.endsWith(u8, tag, ":null")) return erl_nif.enif_make_atom(env, "nil");
     }
     if (is_bool_true(value)) return erl_nif.enif_make_atom(env, "true");
     if (is_bool_false(value)) return erl_nif.enif_make_atom(env, "false");
     if (is_null(value)) return erl_nif.enif_make_atom(env, "nil");
-    if (is_int_str(value)) return make_int_term(env, value) catch return make_string_sub(env, input_term, input, value);
-    if (is_float_str(value)) return make_float_term(env, value) catch return make_string_sub(env, input_term, input, value);
-    return make_string_sub(env, input_term, input, value);
+    if (is_int_str(value)) return make_int_term(env, value) catch return make_string_term(env, value);
+    if (is_float_str(value)) return make_float_term(env, value) catch return make_string_term(env, value);
+    return make_string_term(env, value);
 }
 
 fn is_bool_true(s: []const u8) bool {
@@ -241,6 +243,14 @@ fn is_float_str(s: []const u8) bool {
         }
     }
     return (has_dot or has_e) and has_digit;
+}
+
+fn make_string_term(env: *erl_nif.ErlNifEnv, s: []const u8) erl_nif.ERL_NIF_TERM {
+    var term: erl_nif.ERL_NIF_TERM = 0;
+    const data = erl_nif.enif_make_new_binary(env, @intCast(s.len), &term);
+    const dst: [*]u8 = @ptrCast(data);
+    @memcpy(dst[0..s.len], s);
+    return term;
 }
 
 fn make_int_term(env: *erl_nif.ErlNifEnv, s: []const u8) !erl_nif.ERL_NIF_TERM {
