@@ -43,3 +43,12 @@ Try a minimal event-feed shim in the NIF first (A/B against current build) on th
 | anchors (4.69MB, 400k refs) | 0.133s (35.2 MB/s) |
 | flow seq (2.69MB, 400k) | 0.077s (34.9 MB/s) |
 
+
+## Python extension performance vs PyYAML/ruamel (macOS arm64, Python 3.14)
+
+| Fixture | zaml | PyYAML CSafeLoader | PyYAML SafeLoader | ruamel.yaml (safe,pure) |
+| --- | --- | --- | --- | --- |
+| `benchmark/big.yml` (nested 15.18MB, 2 runs) | 532 ms (1.0×) | 9646 ms (18.1×) | ~28s (52–53×) | ~50.7s (95×) |
+| `benchmark/big_1m.yml` (flat 16.78MB, 2 runs) | 587 ms (1.0×) | 5329 ms (9.1×) | ~29s (49×) | ~41.6s (71×) |
+
+Notes: Python extension wraps libyaml in Zig, builds native objects directly (dict/list/str/int/float/bool/None), matching YAML 1.2 core schema with explicit tag support and anchors.
