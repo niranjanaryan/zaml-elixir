@@ -32,3 +32,14 @@ Building a full document tree + duplicate-key detection is O(n²) on large maps 
 
 ## Recommendation
 Try a minimal event-feed shim in the NIF first (A/B against current build) on the same fixtures before committing a full engine swap. If gains are < 1.3×, focus on: (1) avoid per-event heap churn in the conversion layer, (2) batch map construction more aggressively, (3) consider offloading to dirty CPU schedulers or a parallel chunked parse (evaluated). The Python extension mirrors the same event→object logic; evaluate there too.
+
+## Updated numbers (libfyaml 0.9.6, doc-mode build-only, allow-dup-keys)
+| Case | doc build (allow dup keys) |
+| --- | --- |
+| `big.yml` (nested 15.18MB) | 0.374s (40.5 MB/s) |
+| `big_1m.yml` (flat 16.78MB) | 0.357s (47.0 MB/s) |
+| flow map (6.18MB, 400k k:v) | 0.203s (30.5 MB/s) |
+| block seq (5.09MB, 400k) | 0.086s (58.9 MB/s) |
+| anchors (4.69MB, 400k refs) | 0.133s (35.2 MB/s) |
+| flow seq (2.69MB, 400k) | 0.077s (34.9 MB/s) |
+
